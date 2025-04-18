@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Performance Benchmark</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-message {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
+
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .highlight {
+            animation: highlight 2s ease-in-out;
+        }
+
+        @keyframes highlight {
+            0% {
+                background-color: rgba(255, 255, 0, 0.1);
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-900">LLM Performance Benchmark</h1>
+            <div class="flex space-x-4">
+                <button id="reset-btn"
+                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition">
+                    <i class="fas fa-redo mr-2"></i>Reset
+                </button>
+                <button id="history-btn"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                    <i class="fas fa-history mr-2"></i>History
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <!-- Configuration and Summary Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Configuration Panel -->
+            <div class="bg-white p-4 rounded-lg shadow lg:col-span-1">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Configuration</h2>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Baseline URL</label>
+                            <input type="text" id="baseline-url" value="http://localhost:9000/v1"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Quantized URL</label>
+                            <input type="text" id="quantized-url" value="http://localhost:9001/v1"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Temperature</label>
+                            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7"
+                                class="mt-1 block w-full">
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>0</span>
+                                <span>0.7</span>
+                                <span>2</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Max Tokens</label>
+                            <input type="number" id="max-tokens" value="1024"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <button id="connect-btn"
+                            class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition text-sm">
+                            <i class="fas fa-plug mr-2"></i>Connect to Models
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
+            <div class="bg-white p-4 rounded-lg shadow lg:col-span-2">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Performance Summary</h2>
+                <div class="grid grid-cols-4 gap-3 mb-3">
+                    <div class="stat-card bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <div class="text-sm font-medium text-blue-800">Speed</div>
+                        <div id="speed-improvement" class="text-xl font-bold text-blue-900">-</div>
+                        <div class="text-xs text-blue-600">Tokens/second</div>
+                    </div>
+                    <div class="stat-card bg-purple-50 p-3 rounded-lg border border-purple-100">
+                        <div class="text-sm font-medium text-purple-800">Memory</div>
+                        <div id="memory-reduction" class="text-xl font-bold text-purple-900">-</div>
+                        <div class="text-xs text-purple-600">Model size</div>
+                    </div>
+                    <div class="stat-card bg-green-50 p-3 rounded-lg border border-green-100">
+                        <div class="text-sm font-medium text-green-800">TTFT</div>
+                        <div id="ttft-improvement" class="text-xl font-bold text-green-900">-</div>
+                        <div class="text-xs text-green-600">First token</div>
+                    </div>
+                    <div class="stat-card bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                        <div class="text-sm font-medium text-yellow-800">ITL</div>
+                        <div id="itl-improvement" class="text-xl font-bold text-yellow-900">-</div>
+                        <div class="text-xs text-yellow-600">Token latency</div>
+                    </div>
+                </div>
+                <div>
+                    <canvas id="performance-chart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Comparison -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Baseline Model -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
+                    <div>
+                        <span id="baseline-model-name" class="font-medium">Baseline Model</span>
+                        <span id="baseline-model-size" class="text-xs text-gray-300 ml-2">-</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="baseline-status"
+                            class="text-xs px-2 py-1 rounded-full bg-gray-600">Disconnected</span>
+                    </div>
+                </div>
+                <div id="baseline-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                    <div class="text-center text-gray-500 py-10">
+                        <i class="fas fa-robot text-4xl mb-2"></i>
+                        <p>Connect to baseline model to start benchmarking</p>
+                    </div>
+                </div>
+                <div class="bg-gray-100 px-4 py-2 border-t border-gray-200">
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                            <div class="text-gray-500">TTFT</div>
+                            <div id="baseline-ttft" class="font-medium">- ms</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500">ITL</div>
+                            <div id="baseline-itl" class="font-medium">- ms</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-500">Throughput</div>
+                            <div id="baseline-throughput" class="font-medium">- t/s</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quantized Model -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="bg-indigo-800 text-white px-4 py-3 flex justify-between items-center">
+                    <div>
+                        <span id="quantized-model-name" class="font-medium">Quantized Model</span>
+                        <span id="quantized-model-size" class="text-xs text-indigo-300 ml-2">-</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span id="quantized-status"
+                            class="text-xs px-2 py-1 rounded-full bg-indigo-600">Disconnected</span>
+                    </div>
+                </div>
+                <div id="quantized-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-indigo-50">
+                    <div class="text-center text-indigo-500 py-10">
+                        <i class="fas fa-bolt text-4xl mb-2"></i>
+                        <p>Connect to quantized model to start benchmarking</p>
+                    </div>
+                </div>
+                <div class="bg-indigo-100 px-4 py-2 border-t border-indigo-200">
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                            <div class="text-indigo-500">TTFT</div>
+                            <div id="quantized-ttft" class="font-medium">- ms</div>
+                        </div>
+                        <div>
+                            <div class="text-indigo-500">ITL</div>
+                            <div id="quantized-itl" class="font-medium">- ms</div>
+                        </div>
+                        <div>
+                            <div class="text-indigo-500">Throughput</div>
+                            <div id="quantized-throughput" class="font-medium">- t/s</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex space-x-4">
+                <div class="flex-grow">
+                    <textarea id="user-input" rows="2"
+                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
+                        placeholder="Type your message here..."></textarea>
+                </div>
+                <div>
+                    <button id="send-btn"
+                        class="h-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                        disabled>
+                        <i class="fas fa-paper-plane mr-2"></i>Send
+                    </button>
+                </div>
+            </div>
+            <div class="mt-2 flex justify-between items-center text-xs text-gray-500">
+                <div>
+                    <span id="token-count">0</span> tokens
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span>Streaming:</span>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" id="stream-toggle" checked
+                            class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-offset-0 focus:ring-blue-200 focus:ring-opacity-50">
+                        <span class="ml-2">Enabled</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Global variables
+        let baselineStats = {
+            model: null,
+            size: null,
+            connected: false,
+            ttft: null,
+            itl: null,
+            throughput: null,
+            tokens: 0,
+            startTime: null,
+            lastTokenTime: null
+        };
+
+        let quantizedStats = {
+            model: null,
+            size: null,
+            connected: false,
+            ttft: null,
+            itl: null,
+            throughput: null,
+            tokens: 0,
+            startTime: null,
+            lastTokenTime: null
+        };
+
+        let performanceChart = null;
+        let chatHistory = [];
+
+        // DOM elements
+        const connectBtn = document.getElementById('connect-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const historyBtn = document.getElementById('history-btn');
+        const userInput = document.getElementById('user-input');
+        const baselineChat = document.getElementById('baseline-chat');
+        const quantizedChat = document.getElementById('quantized-chat');
+        const streamToggle = document.getElementById('stream-toggle');
+
+        // Initialize the performance chart
+        function initPerformanceChart() {
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['TTFT', 'ITL', 'Throughput'],
+                    datasets: [
+                        {
+                            label: 'Baseline',
+                            data: [0, 0, 0],
+                            backgroundColor: 'rgba(75, 85, 99, 0.6)',
+                            borderColor: 'rgba(75, 85, 99, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Quantized',
+                            data: [0, 0, 0],
+                            backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                            borderColor: 'rgba(79, 70, 229, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        if (context.dataIndex === 2) { // Throughput
+                                            label += context.parsed.y.toFixed(2) + ' tokens/s';
+                                        } else { // TTFT and ITL
+                                            label += context.parsed.y.toFixed(2) + ' ms';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Connect to models
+        async function connectToModels() {
+            const baselineUrl = document.getElementById('baseline-url').value;
+            const quantizedUrl = document.getElementById('quantized-url').value;
+
+            if (!baselineUrl || !quantizedUrl) {
+                alert('Please enter both model URLs');
+                return;
+            }
+
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Connecting...';
+
+            try {
+                // Connect to baseline model
+                const baselineResponse = await fetch(`${baselineUrl}/models`);
+                const baselineData = await baselineResponse.json();
+                baselineStats.model = baselineData.data[0].id;
+                baselineStats.size = baselineData.data[0].size || 'Unknown';
+                baselineStats.connected = true;
+
+                document.getElementById('baseline-model-name').textContent = baselineStats.model;
+                document.getElementById('baseline-model-size').textContent = baselineStats.size;
+                document.getElementById('baseline-status').textContent = 'Connected';
+                document.getElementById('baseline-status').className = 'text-xs px-2 py-1 rounded-full bg-green-600';
+
+                // Connect to quantized model
+                const quantizedResponse = await fetch(`${quantizedUrl}/models`);
+                const quantizedData = await quantizedResponse.json();
+                quantizedStats.model = quantizedData.data[0].id;
+                quantizedStats.size = quantizedData.data[0].size || 'Unknown';
+                quantizedStats.connected = true;
+
+                document.getElementById('quantized-model-name').textContent = quantizedStats.model;
+                document.getElementById('quantized-model-size').textContent = quantizedStats.size;
+                document.getElementById('quantized-status').textContent = 'Connected';
+                document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-green-600';
+
+                // Clear chat windows and show welcome message
+                baselineChat.innerHTML = '';
+                quantizedChat.innerHTML = '';
+
+                addMessage(baselineChat, 'assistant', 'Baseline model connected and ready for benchmarking.');
+                addMessage(quantizedChat, 'assistant', 'Quantized model connected and ready for benchmarking.');
+
+                // Enable send button
+                sendBtn.disabled = false;
+
+                // Update summary
+                updateSummaryStats();
+
+                connectBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Connected';
+                connectBtn.className = 'w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition cursor-not-allowed';
+            } catch (error) {
+                console.error('Error connecting to models:', error);
+                alert('Error connecting to models. Please check the URLs and try again.');
+
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i>Connect to Models';
+            }
+        }
+
+        // Add message to chat
+        function addMessage(chatElement, role, content, isStreaming = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role === 'user' ? 'text-right' : 'text-left'}`;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `inline-block px-4 py-2 rounded-lg max-w-xs md:max-w-md lg:max-w-lg ${role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`;
+
+            if (isStreaming) {
+                contentDiv.id = `streaming-${chatElement.id}-${Date.now()}`;
+                contentDiv.className += ' streaming-content';
+            }
+
+            contentDiv.textContent = content;
+            messageDiv.appendChild(contentDiv);
+            chatElement.appendChild(messageDiv);
+            chatElement.scrollTop = chatElement.scrollHeight;
+
+            return contentDiv;
+        }
+
+        // Send message to both models
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message || !baselineStats.connected || !quantizedStats.connected) return;
+
+            // Add user message to both chats
+            addMessage(baselineChat, 'user', message);
+            addMessage(quantizedChat, 'user', message);
+
+            // Clear input
+            userInput.value = '';
+
+            // Disable send button during request
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+
+            // Get parameters
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const maxTokens = parseInt(document.getElementById('max-tokens').value);
+            const stream = streamToggle.checked;
+
+            // Prepare messages array
+            const messages = [
+                {
+                    role: 'user',
+                    content: message
+                }
+            ];
+
+            // Record start time
+            const startTime = Date.now();
+            baselineStats.startTime = startTime;
+            quantizedStats.startTime = startTime;
+            baselineStats.tokens = 0;
+            quantizedStats.tokens = 0;
+            baselineStats.ttft = null;
+            quantizedStats.ttft = null;
+            baselineStats.itl = null;
+            quantizedStats.itl = null;
+
+            // Create streaming content divs
+            let baselineContentDiv, quantizedContentDiv;
+            if (stream) {
+                baselineContentDiv = addMessage(baselineChat, 'assistant', '', true);
+                quantizedContentDiv = addMessage(quantizedChat, 'assistant', '', true);
+            }
+
+            try {
+                // Call both models simultaneously
+                const baselineUrl = document.getElementById('baseline-url').value;
+                const quantizedUrl = document.getElementById('quantized-url').value;
+
+                const baselinePromise = callModel(baselineUrl, messages, temperature, maxTokens, stream, baselineContentDiv, 'baseline');
+                const quantizedPromise = callModel(quantizedUrl, messages, temperature, maxTokens, stream, quantizedContentDiv, 'quantized');
+
+                await Promise.all([baselinePromise, quantizedPromise]);
+
+                // Calculate final throughput
+                if (baselineStats.tokens > 0 && baselineStats.startTime) {
+                    const duration = (Date.now() - baselineStats.startTime) / 1000;
+                    baselineStats.throughput = baselineStats.tokens / duration;
+                    document.getElementById('baseline-throughput').textContent = baselineStats.throughput.toFixed(2) + ' t/s';
+                }
+
+                if (quantizedStats.tokens > 0 && quantizedStats.startTime) {
+                    const duration = (Date.now() - quantizedStats.startTime) / 1000;
+                    quantizedStats.throughput = quantizedStats.tokens / duration;
+                    document.getElementById('quantized-throughput').textContent = quantizedStats.throughput.toFixed(2) + ' t/s';
+                }
+
+                // Update summary stats
+                updateSummaryStats();
+
+            } catch (error) {
+                console.error('Error calling models:', error);
+                addMessage(baselineChat, 'assistant', 'Error: ' + error.message);
+                addMessage(quantizedChat, 'assistant', 'Error: ' + error.message);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send';
+            }
+        }
+
+        // Call a single model
+        async function callModel(url, messages, temperature, maxTokens, stream, contentDiv, modelType) {
+            const stats = modelType === 'baseline' ? baselineStats : quantizedStats;
+
+            const payload = {
+                model: stats.model,
+                messages: messages,
+                temperature: temperature,
+                max_tokens: maxTokens,
+                stream: stream
+            };
+
+            if (stream) {
+                // Streaming response
+                const response = await fetch(`${url}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let firstToken = true;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Process each complete line
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                    const token = data.choices[0].delta.content;
+                                    contentDiv.textContent += token;
+
+                                    // Scroll chat window to show latest content
+                                    const chatElement = document.getElementById(`${modelType}-chat`);
+                                    chatElement.scrollTop = chatElement.scrollHeight;
+
+                                    // Record first token time (TTFT)
+                                    if (firstToken) {
+                                        stats.ttft = Date.now() - stats.startTime;
+                                        document.getElementById(`${modelType}-ttft`).textContent = stats.ttft + ' ms';
+                                        firstToken = false;
+                                    } else {
+                                        // Record inter-token latency (ITL)
+                                        stats.itl = Date.now() - (stats.lastTokenTime || stats.startTime);
+                                        document.getElementById(`${modelType}-itl`).textContent = stats.itl + ' ms';
+                                    }
+
+                                    stats.lastTokenTime = Date.now();
+                                    stats.tokens++;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing stream data:', e);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Non-streaming response
+                const response = await fetch(`${url}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                contentDiv.textContent = content;
+
+                // Calculate metrics for non-streaming
+                stats.ttft = Date.now() - stats.startTime;
+                document.getElementById(`${modelType}-ttft`).textContent = stats.ttft + ' ms';
+
+                // Estimate tokens (this would be better with actual token count from API)
+                stats.tokens = content.split(' ').length * 1.33; // Rough estimate
+
+                // Calculate throughput
+                const duration = (Date.now() - stats.startTime) / 1000;
+                stats.throughput = stats.tokens / duration;
+                document.getElementById(`${modelType}-throughput`).textContent = stats.throughput.toFixed(2) + ' t/s';
+            }
+        }
+
+        // Update summary statistics
+        function updateSummaryStats() {
+            if (baselineStats.throughput && quantizedStats.throughput) {
+                const speedImprovement = ((quantizedStats.throughput - baselineStats.throughput) / baselineStats.throughput * 100).toFixed(2);
+                document.getElementById('speed-improvement').textContent = `${speedImprovement}%`;
+
+                // Highlight if significant improvement
+                if (parseFloat(speedImprovement) > 10) {
+                    document.getElementById('speed-improvement').classList.add('highlight');
+                    setTimeout(() => {
+                        document.getElementById('speed-improvement').classList.remove('highlight');
+                    }, 2000);
+                }
+            }
+
+            if (baselineStats.ttft && quantizedStats.ttft) {
+                const ttftImprovement = ((baselineStats.ttft - quantizedStats.ttft) / baselineStats.ttft * 100).toFixed(2);
+                document.getElementById('ttft-improvement').textContent = `${ttftImprovement}%`;
+            }
+
+            if (baselineStats.itl && quantizedStats.itl) {
+                const itlImprovement = ((baselineStats.itl - quantizedStats.itl) / baselineStats.itl * 100).toFixed(2);
+                document.getElementById('itl-improvement').textContent = `${itlImprovement}%`;
+            }
+
+            // Update chart
+            if (performanceChart) {
+                performanceChart.data.datasets[0].data = [
+                    baselineStats.ttft || 0,
+                    baselineStats.itl || 0,
+                    baselineStats.throughput || 0
+                ];
+                performanceChart.data.datasets[1].data = [
+                    quantizedStats.ttft || 0,
+                    quantizedStats.itl || 0,
+                    quantizedStats.throughput || 0
+                ];
+                performanceChart.update();
+            }
+        }
+
+        // Reset the application
+        function resetApplication() {
+            // Reset stats
+            baselineStats = {
+                model: null,
+                size: null,
+                connected: false,
+                ttft: null,
+                itl: null,
+                throughput: null,
+                tokens: 0,
+                startTime: null,
+                lastTokenTime: null
+            };
+
+            quantizedStats = {
+                model: null,
+                size: null,
+                connected: false,
+                ttft: null,
+                itl: null,
+                throughput: null,
+                tokens: 0,
+                startTime: null,
+                lastTokenTime: null
+            };
+
+            // Reset UI
+            document.getElementById('baseline-model-name').textContent = 'Baseline Model';
+            document.getElementById('baseline-model-size').textContent = '-';
+            document.getElementById('baseline-status').textContent = 'Disconnected';
+            document.getElementById('baseline-status').className = 'text-xs px-2 py-1 rounded-full bg-gray-600';
+            document.getElementById('baseline-ttft').textContent = '- ms';
+            document.getElementById('baseline-itl').textContent = '- ms';
+            document.getElementById('baseline-throughput').textContent = '- t/s';
+            baselineChat.innerHTML = '<div class="text-center text-gray-500 py-10"><i class="fas fa-robot text-4xl mb-2"></i><p>Connect to baseline model to start benchmarking</p></div>';
+
+            document.getElementById('quantized-model-name').textContent = 'Quantized Model';
+            document.getElementById('quantized-model-size').textContent = '-';
+            document.getElementById('quantized-status').textContent = 'Disconnected';
+            document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-indigo-600';
+            document.getElementById('quantized-ttft').textContent = '- ms';
+            document.getElementById('quantized-itl').textContent = '- ms';
+            document.getElementById('quantized-throughput').textContent = '- t/s';
+            quantizedChat.innerHTML = '<div class="text-center text-indigo-500 py-10"><i class="fas fa-bolt text-4xl mb-2"></i><p>Connect to quantized model to start benchmarking</p></div>';
+
+            document.getElementById('speed-improvement').textContent = '-';
+            document.getElementById('ttft-improvement').textContent = '-';
+            document.getElementById('itl-improvement').textContent = '-';
+            document.getElementById('memory-reduction').textContent = '-';
+
+            connectBtn.disabled = false;
+            connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i>Connect to Models';
+            connectBtn.className = 'w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition';
+
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send';
+
+            // Reset chart
+            if (performanceChart) {
+                performanceChart.data.datasets[0].data = [0, 0, 0];
+                performanceChart.data.datasets[1].data = [0, 0, 0];
+                performanceChart.update();
+            }
+        }
+
+        // Show history
+        function showHistory() {
+            alert('History feature would show previous benchmark results here.');
+            // In a real implementation, this would show a modal with previous test results
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', initPerformanceChart);
+        connectBtn.addEventListener('click', connectToModels);
+        sendBtn.addEventListener('click', sendMessage);
+        resetBtn.addEventListener('click', resetApplication);
+        historyBtn.addEventListener('click', showHistory);
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Token counter
+        userInput.addEventListener('input', () => {
+            const text = userInput.value;
+            // Very rough token estimate (4 chars ~= 1 token)
+            const tokenCount = Math.ceil(text.length / 4);
+            document.getElementById('token-count').textContent = tokenCount;
+        });
+    </script>
+</body>
+
+</html>
