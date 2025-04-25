@@ -375,6 +375,9 @@
             connected: false,
             ttft: null,
             itl: null,
+            itlValues: [],
+            itlMean: null,
+            itlStdDev: null,
             throughput: null,
             tokens: 0,
             startTime: null,
@@ -387,6 +390,9 @@
             connected: false,
             ttft: null,
             itl: null,
+            itlValues: [],
+            itlMean: null,
+            itlStdDev: null,
             throughput: null,
             tokens: 0,
             startTime: null,
@@ -404,6 +410,17 @@
         const baselineChat = document.getElementById('baseline-chat');
         const quantizedChat = document.getElementById('quantized-chat');
         const streamToggle = document.getElementById('stream-toggle');
+
+        // Helper function to calculate statistics
+        function calculateStats(values) {
+            if (values.length === 0) return { mean: 0, stdDev: 0 };
+
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+            const stdDev = Math.sqrt(variance);
+
+            return { mean, stdDev };
+        }
 
         // Initialize the performance chart
         function initPerformanceChart() {
@@ -456,10 +473,24 @@
                                         label += ': ';
                                     }
                                     if (context.parsed.x !== null) {
-                                        if (context.parsed.dataIndex === 2) { // Throughput
-                                            label += context.parsed.x.toFixed(1) + ' tokens/s';
-                                        } else { // TTFT and ITL
-                                            label += context.parsed.x.toFixed(1) + ' ms';
+                                        if (context.datasetIndex === 0) { // Baseline
+                                            const stats = baselineStats;
+                                            if (context.parsed.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                                label += `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
+                                            } else if (context.parsed.dataIndex === 2) { // Throughput
+                                                label += context.parsed.x.toFixed(1) + ' tokens/s';
+                                            } else {
+                                                label += context.parsed.x.toFixed(1) + ' ms';
+                                            }
+                                        } else { // Quantized
+                                            const stats = quantizedStats;
+                                            if (context.parsed.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                                label += `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
+                                            } else if (context.parsed.dataIndex === 2) { // Throughput
+                                                label += context.parsed.x.toFixed(1) + ' tokens/s';
+                                            } else {
+                                                label += context.parsed.x.toFixed(1) + ' ms';
+                                            }
                                         }
                                     }
                                     return label;
@@ -470,11 +501,21 @@
                             anchor: 'end',
                             align: 'right',
                             formatter: function (value, context) {
+                                if (context.datasetIndex === 0) { // Baseline
+                                    const stats = baselineStats;
+                                    if (context.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                        return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
+                                    }
+                                } else { // Quantized
+                                    const stats = quantizedStats;
+                                    if (context.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                        return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
+                                    }
+                                }
                                 if (context.dataIndex === 2) { // Throughput
                                     return value.toFixed(1) + ' t/s';
-                                } else { // TTFT and ITL
-                                    return value.toFixed(1) + ' ms';
                                 }
+                                return value.toFixed(1) + ' ms';
                             },
                             color: function (context) {
                                 return context.datasetIndex === 0 ? 'rgb(71, 71, 71)' : 'rgb(238, 0, 0)';
@@ -742,8 +783,13 @@
                                         firstToken = false;
                                     } else {
                                         // Record inter-token latency (ITL)
-                                        stats.itl = Date.now() - (stats.lastTokenTime || stats.startTime);
-                                        document.getElementById(`${modelType}-itl`).textContent = stats.itl + ' ms';
+                                        const currentItl = Date.now() - (stats.lastTokenTime || stats.startTime);
+                                        stats.itlValues.push(currentItl);
+                                        const { mean, stdDev } = calculateStats(stats.itlValues);
+                                        stats.itlMean = mean;
+                                        stats.itlStdDev = stdDev;
+                                        stats.itl = currentItl; // Keep for backwards compatibility
+                                        document.getElementById(`${modelType}-itl`).textContent = `${mean.toFixed(1)} ±${stdDev.toFixed(1)} ms`;
                                     }
 
                                     stats.lastTokenTime = Date.now();
@@ -808,8 +854,8 @@
                 document.getElementById('ttft-improvement').textContent = `${ttftMultiplier}x`;
             }
 
-            if (baselineStats.itl && quantizedStats.itl) {
-                const itlMultiplier = (baselineStats.itl / quantizedStats.itl).toFixed(1);
+            if (baselineStats.itlValues.length > 0 && quantizedStats.itlValues.length > 0) {
+                const itlMultiplier = (baselineStats.itlMean / quantizedStats.itlMean).toFixed(1);
                 document.getElementById('itl-improvement').textContent = `${itlMultiplier}x`;
             }
 
@@ -817,12 +863,12 @@
             if (performanceChart) {
                 performanceChart.data.datasets[0].data = [
                     baselineStats.ttft || 0,
-                    baselineStats.itl || 0,
+                    baselineStats.itlMean || 0,
                     baselineStats.throughput || 0
                 ];
                 performanceChart.data.datasets[1].data = [
                     quantizedStats.ttft || 0,
-                    quantizedStats.itl || 0,
+                    quantizedStats.itlMean || 0,
                     quantizedStats.throughput || 0
                 ];
                 performanceChart.update();
@@ -838,6 +884,9 @@
                 connected: false,
                 ttft: null,
                 itl: null,
+                itlValues: [],
+                itlMean: null,
+                itlStdDev: null,
                 throughput: null,
                 tokens: 0,
                 startTime: null,
@@ -850,6 +899,9 @@
                 connected: false,
                 ttft: null,
                 itl: null,
+                itlValues: [],
+                itlMean: null,
+                itlStdDev: null,
                 throughput: null,
                 tokens: 0,
                 startTime: null,
