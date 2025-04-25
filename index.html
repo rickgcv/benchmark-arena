@@ -473,24 +473,15 @@
                                         label += ': ';
                                     }
                                     if (context.parsed.x !== null) {
-                                        if (context.datasetIndex === 0) { // Baseline
-                                            const stats = baselineStats;
-                                            if (context.parsed.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
-                                                label += `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
-                                            } else if (context.parsed.dataIndex === 2) { // Throughput
-                                                label += context.parsed.x.toFixed(1) + ' tokens/s';
-                                            } else {
-                                                label += context.parsed.x.toFixed(1) + ' ms';
-                                            }
-                                        } else { // Quantized
-                                            const stats = quantizedStats;
-                                            if (context.parsed.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
-                                                label += `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
-                                            } else if (context.parsed.dataIndex === 2) { // Throughput
-                                                label += context.parsed.x.toFixed(1) + ' tokens/s';
-                                            } else {
-                                                label += context.parsed.x.toFixed(1) + ' ms';
-                                            }
+                                        const dataIndex = context.dataIndex;
+                                        const stats = context.datasetIndex === 0 ? baselineStats : quantizedStats;
+
+                                        if (dataIndex === 2) { // Throughput
+                                            return label + context.parsed.x.toFixed(1) + ' tokens/s';
+                                        } else if (dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                            return label + `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
+                                        } else { // TTFT
+                                            return label + context.parsed.x.toFixed(1) + ' ms';
                                         }
                                     }
                                     return label;
@@ -501,21 +492,16 @@
                             anchor: 'end',
                             align: 'right',
                             formatter: function (value, context) {
-                                if (context.datasetIndex === 0) { // Baseline
-                                    const stats = baselineStats;
-                                    if (context.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
-                                        return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
-                                    }
-                                } else { // Quantized
-                                    const stats = quantizedStats;
-                                    if (context.dataIndex === 1 && stats.itlValues.length > 0) { // ITL
-                                        return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
-                                    }
-                                }
-                                if (context.dataIndex === 2) { // Throughput
+                                const dataIndex = context.dataIndex;
+                                const stats = context.datasetIndex === 0 ? baselineStats : quantizedStats;
+
+                                if (dataIndex === 2) { // Throughput
                                     return value.toFixed(1) + ' t/s';
+                                } else if (dataIndex === 1 && stats.itlValues.length > 0) { // ITL
+                                    return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
+                                } else { // TTFT
+                                    return value.toFixed(1) + ' ms';
                                 }
-                                return value.toFixed(1) + ' ms';
                             },
                             color: function (context) {
                                 return context.datasetIndex === 0 ? 'rgb(71, 71, 71)' : 'rgb(238, 0, 0)';
