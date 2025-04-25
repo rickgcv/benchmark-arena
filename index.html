@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tiktoken-node@0.0.6/dist/tiktoken.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .chat-message {
@@ -391,6 +393,31 @@
         let performanceChart = null;
         let chatHistory = [];
 
+        // Initialize tokenizer
+        let tokenizer = null;
+        async function initTokenizer() {
+            try {
+                // Default to cl100k_base which is used by most recent models
+                tokenizer = await tiktoken.get_encoding("cl100k_base");
+            } catch (error) {
+                console.error('Failed to initialize tokenizer:', error);
+            }
+        }
+
+        // Get accurate token count
+        function getTokenCount(text) {
+            if (!tokenizer) {
+                // Fallback to rough estimate if tokenizer not loaded
+                return Math.ceil(text.length / 4);
+            }
+            try {
+                return tokenizer.encode(text).length;
+            } catch (error) {
+                console.error('Tokenization error:', error);
+                return Math.ceil(text.length / 4);
+            }
+        }
+
         // DOM elements
         const sendBtn = document.getElementById('send-btn');
         const resetBtn = document.getElementById('reset-btn');
@@ -705,26 +732,77 @@
                 let firstToken = true;
                 let startTime = Date.now();
                 let lastMarkdownUpdate = 0;
-                const markdownUpdateInterval = 200; // Update markdown parsing every 200ms
+                const markdownUpdateInterval = 20; // Update markdown parsing every N ms
 
-                // Start periodic markdown parsing
-                const markdownInterval = setInterval(() => {
+                // Create a container for smooth rendering
+                const renderContainer = document.createElement('div');
+                renderContainer.className = 'markdown-content';
+                contentDiv.appendChild(renderContainer);
+
+                // Create a measurement container with proper containment
+                const measureContainer = document.createElement('div');
+                measureContainer.style.cssText = `
+                    position: fixed;
+                    top: -9999px;
+                    left: -9999px;
+                    visibility: hidden;
+                    contain: strict;
+                    pointer-events: none;
+                    width: ${renderContainer.offsetWidth}px;
+                    height: 0;
+                    overflow: hidden;
+                `;
+                const measureDiv = document.createElement('div');
+                measureDiv.className = 'markdown-content';
+                measureContainer.appendChild(measureDiv);
+                document.body.appendChild(measureContainer);
+
+                // Function to smoothly update content
+                function updateContent() {
                     if (markdownBuffer.length > lastParsedLength) {
-                        // Get the already parsed content and the new content
-                        const newContent = markdownBuffer.slice(lastParsedLength);
-                        parsedDiv.innerHTML = marked.parse(markdownBuffer);
+                        const chatElement = contentDiv.closest('.overflow-y-auto');
+                        const isAtBottom = chatElement.scrollHeight - chatElement.scrollTop <= chatElement.clientHeight + 50;
+
+                        // Measure the new content height
+                        measureDiv.innerHTML = marked.parse(markdownBuffer);
+
+                        // Update the actual content
+                        renderContainer.innerHTML = marked.parse(markdownBuffer);
                         lastParsedLength = markdownBuffer.length;
-                        streamingDiv.textContent = ''; // Clear streaming div after parsing
+
+                        // Scroll to bottom if we were already near bottom
+                        if (isAtBottom) {
+                            chatElement.scrollTop = chatElement.scrollHeight;
+                        }
                     }
-                }, markdownUpdateInterval);
+                }
+
+                // Start periodic markdown parsing with requestAnimationFrame
+                let animationFrameId = null;
+                let lastUpdate = 0;
+
+                function scheduleUpdate(timestamp) {
+                    if (!lastUpdate) lastUpdate = timestamp;
+
+                    const elapsed = timestamp - lastUpdate;
+
+                    if (elapsed >= markdownUpdateInterval) {
+                        updateContent();
+                        lastUpdate = timestamp;
+                    }
+
+                    animationFrameId = requestAnimationFrame(scheduleUpdate);
+                }
+
+                animationFrameId = requestAnimationFrame(scheduleUpdate);
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
-                        clearInterval(markdownInterval);
+                        cancelAnimationFrame(animationFrameId);
+                        measureContainer.remove();
                         // Final markdown parse
-                        parsedDiv.innerHTML = marked.parse(markdownBuffer);
-                        streamingDiv.remove();
+                        updateContent();
                         break;
                     }
 
@@ -770,6 +848,23 @@
                                     const duration = (Date.now() - startTime) / 1000; // Convert to seconds
                                     stats.throughput = stats.tokens / duration;
                                     document.getElementById(`${modelType}-throughput`).textContent = stats.throughput.toFixed(2) + ' t/s';
+
+                                    // Update chart in real-time
+                                    if (performanceChart) {
+                                        const baselineData = [
+                                            baselineStats.ttft || 0,
+                                            baselineStats.itlMean || 0,
+                                            baselineStats.throughput || 0
+                                        ];
+                                        const quantizedData = [
+                                            quantizedStats.ttft || 0,
+                                            quantizedStats.itlMean || 0,
+                                            quantizedStats.throughput || 0
+                                        ];
+                                        performanceChart.data.datasets[0].data = baselineData;
+                                        performanceChart.data.datasets[1].data = quantizedData;
+                                        performanceChart.update('none'); // Use 'none' for smoother updates
+                                    }
                                 }
                             } catch (e) {
                                 console.error('Error parsing stream data:', e);
@@ -918,7 +1013,8 @@
         }
 
         // Wait for the DOM to be fully loaded before setting up event listeners
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initTokenizer();
             initPerformanceChart();
 
             // Setup modal functionality
@@ -977,26 +1073,29 @@
                     sendMessage();
                 }
             });
-        });
 
-        // Token counter
-        userInput.addEventListener('input', () => {
-            const text = userInput.value;
-            // Very rough token estimate (4 chars ~= 1 token)
-            const tokenCount = Math.ceil(text.length / 4);
-            document.getElementById('token-count').textContent = tokenCount;
-        });
+            // Token counter with accurate tokenization
+            userInput.addEventListener('input', async () => {
+                const text = userInput.value;
+                const tokenCount = getTokenCount(text);
+                const tokenCountElement = document.getElementById('token-count');
+                if (tokenCountElement) {
+                    tokenCountElement.textContent = tokenCount;
+                }
+            });
 
-        // Example prompt click handlers
-        document.querySelectorAll('.example-prompt').forEach(button => {
-            button.addEventListener('click', () => {
-                const prompt = button.getAttribute('data-prompt');
-                userInput.value = prompt;
-                // Update token count
-                const tokenCount = Math.ceil(prompt.length / 4);
-                document.getElementById('token-count').textContent = tokenCount;
-                // Focus the input
-                userInput.focus();
+            // Example prompt click handlers with accurate tokenization
+            document.querySelectorAll('.example-prompt').forEach(button => {
+                button.addEventListener('click', () => {
+                    const prompt = button.getAttribute('data-prompt');
+                    userInput.value = prompt;
+                    const tokenCount = getTokenCount(prompt);
+                    const tokenCountElement = document.getElementById('token-count');
+                    if (tokenCountElement) {
+                        tokenCountElement.textContent = tokenCount;
+                    }
+                    userInput.focus();
+                });
             });
         });
 
