@@ -283,14 +283,6 @@
                 <div>
                     <span id="token-count">0</span> tokens
                 </div>
-                <div class="flex items-center space-x-2">
-                    <span>Streaming:</span>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" id="stream-toggle" checked
-                            class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-offset-0 focus:ring-blue-200 focus:ring-opacity-50">
-                        <span class="ml-2">Enabled</span>
-                    </label>
-                </div>
             </div>
             <!-- Example Prompts -->
             <div class="mt-4">
@@ -409,7 +401,6 @@
         const userInput = document.getElementById('user-input');
         const baselineChat = document.getElementById('baseline-chat');
         const quantizedChat = document.getElementById('quantized-chat');
-        const streamToggle = document.getElementById('stream-toggle');
 
         // Helper function to calculate statistics
         function calculateStats(values) {
@@ -627,7 +618,7 @@
             // Get parameters
             const temperature = parseFloat(document.getElementById('temperature').value);
             const maxTokens = parseInt(document.getElementById('max-tokens').value);
-            const stream = streamToggle.checked;
+            const stream = true;
 
             // Prepare messages array
             const messages = [
@@ -649,14 +640,11 @@
             quantizedStats.itl = null;
 
             // Create streaming content divs
-            let baselineContentDiv, quantizedContentDiv;
-            if (stream) {
-                baselineContentDiv = addMessage(baselineChat, 'assistant', '', true);
-                quantizedContentDiv = addMessage(quantizedChat, 'assistant', '', true);
-            }
+            const baselineContentDiv = addMessage(baselineChat, 'assistant', '', true);
+            const quantizedContentDiv = addMessage(quantizedChat, 'assistant', '', true);
 
             try {
-                // Call models concurrently again
+                // Call models concurrently
                 const baselineUrl = document.getElementById('baseline-url').value;
                 const quantizedUrl = document.getElementById('quantized-url').value;
 
