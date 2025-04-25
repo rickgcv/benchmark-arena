@@ -166,7 +166,7 @@
         <!-- Summary Grid -->
         <div class="grid grid-cols-12 gap-4 mb-4">
             <!-- Performance Stats -->
-            <div class="col-span-3 space-y-2">
+            <div class="col-span-2 space-y-2">
                 <div class="stat-card bg-green-50 p-2 rounded-lg border border-green-100">
                     <div class="text-sm font-medium text-green-800">TTFT Speedup</div>
                     <div id="ttft-improvement" class="text-lg font-bold text-green-900">-</div>
@@ -175,7 +175,7 @@
                 <div class="stat-card bg-yellow-50 p-2 rounded-lg border border-yellow-100">
                     <div class="text-sm font-medium text-yellow-800">ITL Speedup</div>
                     <div id="itl-improvement" class="text-lg font-bold text-yellow-900">-</div>
-                    <div class="text-xs text-yellow-600">Inter-token Latency </div>
+                    <div class="text-xs text-yellow-600">Inter-token Latency</div>
                 </div>
                 <div class="stat-card bg-blue-50 p-2 rounded-lg border border-blue-100">
                     <div class="text-sm font-medium text-blue-800">Throughput Speedup</div>
@@ -185,13 +185,13 @@
             </div>
 
             <!-- Performance Chart -->
-            <div class="col-span-9 bg-white p-3 rounded-lg shadow">
+            <div class="col-span-10 bg-white p-3 rounded-lg shadow">
                 <canvas id="performance-chart" height="80"></canvas>
             </div>
         </div>
 
         <!-- Chat Comparison -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-2 gap-6 mb-6">
             <!-- Baseline Model -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
@@ -203,7 +203,7 @@
                             class="text-xs px-2 py-1 rounded-full bg-gray-600">Disconnected</span>
                     </div>
                 </div>
-                <div id="baseline-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                <div id="baseline-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-gray-40">
                     <div class="text-center text-gray-500 py-10">
                         <i class="fas fa-robot text-4xl mb-2"></i>
                         <p>Connect to baseline model to start benchmarking</p>
@@ -238,24 +238,24 @@
                             class="text-xs px-2 py-1 rounded-full bg-red-600">Disconnected</span>
                     </div>
                 </div>
-                <div id="quantized-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-red-50">
+                <div id="quantized-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-red-40">
                     <div class="text-center text-red-500 py-10">
                         <i class="fas fa-bolt text-4xl mb-2"></i>
                         <p>Connect to quantized model to start benchmarking</p>
                     </div>
                 </div>
-                <div class="bg-indigo-100 px-4 py-2 border-t border-indigo-200">
+                <div class="bg-red-50 px-4 py-2 border-t border-red-200">
                     <div class="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                            <div class="text-indigo-500">TTFT</div>
+                            <div class="text-red-500">TTFT</div>
                             <div id="quantized-ttft" class="font-medium">- ms</div>
                         </div>
                         <div>
-                            <div class="text-indigo-500">ITL</div>
+                            <div class="text-red-500">ITL</div>
                             <div id="quantized-itl" class="font-medium">- ms</div>
                         </div>
                         <div>
-                            <div class="text-indigo-500">Throughput</div>
+                            <div class="text-red-500">Throughput</div>
                             <div id="quantized-throughput" class="font-medium">- t/s</div>
                         </div>
                     </div>
@@ -273,43 +273,40 @@
                 </div>
                 <div>
                     <button id="send-btn"
-                        class="h-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                        class="h-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition disabled:opacity-50 flex items-center"
                         disabled>
                         <i class="fas fa-paper-plane mr-2"></i>Send
+                        <span class="ml-2 text-xs">(<span id="token-count">0</span> tokens)</span>
                     </button>
                 </div>
             </div>
-            <div class="mt-2 flex justify-between items-center text-xs text-gray-500">
-                <div>
-                    <span id="token-count">0</span> tokens
-                </div>
+        </div>
+        <!-- Example Prompts -->
+        <div class="mt-4 flex items-center">
+            <h3 class="text-sm font-medium text-gray-700 mr-4">Example Prompts:</h3>
+            <div class="flex flex-wrap gap-2">
+                <button
+                    class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                    data-prompt="Explain quantum computing in simple terms.">
+                    Quantum Computing
+                </button>
+                <button
+                    class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                    data-prompt="Write a short story about a robot learning to paint.">
+                    Robot Story
+                </button>
+                <button
+                    class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                    data-prompt="Compare and contrast Python and JavaScript programming languages.">
+                    Python vs JavaScript
+                </button>
+                <button
+                    class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                    data-prompt="What are the key principles of good UI/UX design?">
+                    UI/UX Principles
+                </button>
             </div>
-            <!-- Example Prompts -->
-            <div class="mt-4">
-                <h3 class="text-sm font-medium text-gray-700 mb-2">Example Prompts:</h3>
-                <div class="flex flex-wrap gap-2">
-                    <button
-                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
-                        data-prompt="Explain quantum computing in simple terms.">
-                        Quantum Computing
-                    </button>
-                    <button
-                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
-                        data-prompt="Write a short story about a robot learning to paint.">
-                        Robot Story
-                    </button>
-                    <button
-                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
-                        data-prompt="Compare and contrast Python and JavaScript programming languages.">
-                        Python vs JavaScript
-                    </button>
-                    <button
-                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
-                        data-prompt="What are the key principles of good UI/UX design?">
-                        UI/UX Principles
-                    </button>
-                </div>
-            </div>
+        </div>
         </div>
     </main>
 
