@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .chat-message {
@@ -52,6 +53,91 @@
                 background-color: transparent;
             }
         }
+
+        /* Markdown styling */
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-content h1 {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 1em 0;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin: 0.8em 0;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin: 0.6em 0;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        .markdown-content ul {
+            list-style-type: disc;
+        }
+
+        .markdown-content ol {
+            list-style-type: decimal;
+        }
+
+        .markdown-content code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+
+        .markdown-content pre {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 1em;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #e2e8f0;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #4a5568;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5em;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background-color: #f7fafc;
+        }
     </style>
 </head>
 
@@ -81,11 +167,6 @@
         <div class="grid grid-cols-12 gap-4 mb-4">
             <!-- Performance Stats -->
             <div class="col-span-3 space-y-2">
-                <div class="stat-card bg-blue-50 p-2 rounded-lg border border-blue-100">
-                    <div class="text-sm font-medium text-blue-800">Speedup</div>
-                    <div id="speed-improvement" class="text-lg font-bold text-blue-900">-</div>
-                    <div class="text-xs text-blue-600">Tokens/second</div>
-                </div>
                 <div class="stat-card bg-green-50 p-2 rounded-lg border border-green-100">
                     <div class="text-sm font-medium text-green-800">TTFT</div>
                     <div id="ttft-improvement" class="text-lg font-bold text-green-900">-</div>
@@ -95,6 +176,11 @@
                     <div class="text-sm font-medium text-yellow-800">ITL</div>
                     <div id="itl-improvement" class="text-lg font-bold text-yellow-900">-</div>
                     <div class="text-xs text-yellow-600">Token latency</div>
+                </div>
+                <div class="stat-card bg-blue-50 p-2 rounded-lg border border-blue-100">
+                    <div class="text-sm font-medium text-blue-800">Speedup</div>
+                    <div id="speed-improvement" class="text-lg font-bold text-blue-900">-</div>
+                    <div class="text-xs text-blue-600">Tokens/second</div>
                 </div>
             </div>
 
@@ -111,7 +197,6 @@
                 <div class="bg-gray-800 text-white px-4 py-3 flex justify-between items-center">
                     <div>
                         <span id="baseline-model-name" class="font-medium">Baseline Model</span>
-                        <span id="baseline-model-size" class="text-xs text-gray-300 ml-2">-</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span id="baseline-status"
@@ -144,18 +229,17 @@
 
             <!-- Quantized Model -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
-                <div class="bg-indigo-800 text-white px-4 py-3 flex justify-between items-center">
+                <div class="bg-red-800 text-white px-4 py-3 flex justify-between items-center">
                     <div>
                         <span id="quantized-model-name" class="font-medium">Quantized Model</span>
-                        <span id="quantized-model-size" class="text-xs text-indigo-300 ml-2">-</span>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span id="quantized-status"
-                            class="text-xs px-2 py-1 rounded-full bg-indigo-600">Disconnected</span>
+                            class="text-xs px-2 py-1 rounded-full bg-red-600">Disconnected</span>
                     </div>
                 </div>
-                <div id="quantized-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-indigo-50">
-                    <div class="text-center text-indigo-500 py-10">
+                <div id="quantized-chat" class="h-96 overflow-y-auto p-4 space-y-4 bg-red-50">
+                    <div class="text-center text-red-500 py-10">
                         <i class="fas fa-bolt text-4xl mb-2"></i>
                         <p>Connect to quantized model to start benchmarking</p>
                     </div>
@@ -327,7 +411,7 @@
             performanceChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['TTFT', 'ITL', 'Throughput'],
+                    labels: ['TTFT (ms)', 'ITL (ms)', 'Throughput (t/s)'],
                     datasets: [
                         {
                             label: 'Baseline',
@@ -426,7 +510,6 @@
                 baselineStats.connected = true;
 
                 document.getElementById('baseline-model-name').textContent = baselineStats.model;
-                document.getElementById('baseline-model-size').textContent = baselineStats.size;
                 document.getElementById('baseline-status').textContent = 'Connected';
                 document.getElementById('baseline-status').className = 'text-xs px-2 py-1 rounded-full bg-green-600';
 
@@ -438,7 +521,6 @@
                 quantizedStats.connected = true;
 
                 document.getElementById('quantized-model-name').textContent = quantizedStats.model;
-                document.getElementById('quantized-model-size').textContent = quantizedStats.size;
                 document.getElementById('quantized-status').textContent = 'Connected';
                 document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-green-600';
 
@@ -481,10 +563,17 @@
 
             if (isStreaming) {
                 contentDiv.id = `streaming-${chatElement.id}-${Date.now()}`;
-                contentDiv.className += ' streaming-content';
+                contentDiv.className += ' streaming-content markdown-content';
+            } else {
+                contentDiv.className += ' markdown-content';
+                // Only render markdown for non-streaming, non-user messages
+                if (role === 'assistant') {
+                    contentDiv.innerHTML = marked.parse(content);
+                } else {
+                    contentDiv.textContent = content;
+                }
             }
 
-            contentDiv.textContent = content;
             messageDiv.appendChild(contentDiv);
             chatElement.appendChild(messageDiv);
             chatElement.scrollTop = chatElement.scrollHeight;
@@ -567,6 +656,8 @@
         // Call a single model
         async function callModel(url, messages, temperature, maxTokens, stream, contentDiv, modelType) {
             const stats = modelType === 'baseline' ? baselineStats : quantizedStats;
+            let markdownBuffer = '';
+            let lastParsedLength = 0;
 
             const payload = {
                 model: stats.model,
@@ -577,6 +668,12 @@
             };
 
             if (stream) {
+                // Create two divs - one for parsed markdown and one for streaming text
+                const parsedDiv = document.createElement('div');
+                const streamingDiv = document.createElement('div');
+                contentDiv.appendChild(parsedDiv);
+                contentDiv.appendChild(streamingDiv);
+
                 // Streaming response
                 const response = await fetch(`${url}/chat/completions`, {
                     method: 'POST',
@@ -595,10 +692,29 @@
                 let buffer = '';
                 let firstToken = true;
                 let startTime = Date.now();
+                let lastMarkdownUpdate = 0;
+                const markdownUpdateInterval = 200; // Update markdown parsing every 200ms
+
+                // Start periodic markdown parsing
+                const markdownInterval = setInterval(() => {
+                    if (markdownBuffer.length > lastParsedLength) {
+                        // Get the already parsed content and the new content
+                        const newContent = markdownBuffer.slice(lastParsedLength);
+                        parsedDiv.innerHTML = marked.parse(markdownBuffer);
+                        lastParsedLength = markdownBuffer.length;
+                        streamingDiv.textContent = ''; // Clear streaming div after parsing
+                    }
+                }, markdownUpdateInterval);
 
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
+                    if (done) {
+                        clearInterval(markdownInterval);
+                        // Final markdown parse
+                        parsedDiv.innerHTML = marked.parse(markdownBuffer);
+                        streamingDiv.remove();
+                        break;
+                    }
 
                     buffer += decoder.decode(value, { stream: true });
 
@@ -612,7 +728,8 @@
                                 const data = JSON.parse(line.substring(6));
                                 if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                     const token = data.choices[0].delta.content;
-                                    contentDiv.textContent += token;
+                                    markdownBuffer += token;
+                                    streamingDiv.textContent += token; // Show new text immediately
 
                                     // Scroll chat window to show latest content
                                     const chatElement = document.getElementById(`${modelType}-chat`);
@@ -655,7 +772,7 @@
 
                 const data = await response.json();
                 const content = data.choices[0].message.content;
-                contentDiv.textContent = content;
+                contentDiv.innerHTML = marked.parse(content);
 
                 // Calculate metrics for non-streaming
                 const duration = (Date.now() - stats.startTime) / 1000; // Convert to seconds
@@ -741,7 +858,6 @@
 
             // Reset UI
             document.getElementById('baseline-model-name').textContent = 'Baseline Model';
-            document.getElementById('baseline-model-size').textContent = '-';
             document.getElementById('baseline-status').textContent = 'Disconnected';
             document.getElementById('baseline-status').className = 'text-xs px-2 py-1 rounded-full bg-gray-600';
             document.getElementById('baseline-ttft').textContent = '- ms';
@@ -750,13 +866,12 @@
             baselineChat.innerHTML = '<div class="text-center text-gray-500 py-10"><i class="fas fa-robot text-4xl mb-2"></i><p>Connect to baseline model to start benchmarking</p></div>';
 
             document.getElementById('quantized-model-name').textContent = 'Quantized Model';
-            document.getElementById('quantized-model-size').textContent = '-';
             document.getElementById('quantized-status').textContent = 'Disconnected';
-            document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-indigo-600';
+            document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-red-600';
             document.getElementById('quantized-ttft').textContent = '- ms';
             document.getElementById('quantized-itl').textContent = '- ms';
             document.getElementById('quantized-throughput').textContent = '- t/s';
-            quantizedChat.innerHTML = '<div class="text-center text-indigo-500 py-10"><i class="fas fa-bolt text-4xl mb-2"></i><p>Connect to quantized model to start benchmarking</p></div>';
+            quantizedChat.innerHTML = '<div class="text-center text-red-500 py-10"><i class="fas fa-bolt text-4xl mb-2"></i><p>Connect to quantized model to start benchmarking</p></div>';
 
             document.getElementById('speed-improvement').textContent = '-';
             document.getElementById('ttft-improvement').textContent = '-';
