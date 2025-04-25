@@ -7,6 +7,7 @@
     <title>LLM Performance Benchmark</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .chat-message {
@@ -56,94 +57,50 @@
 
 <body class="bg-gray-50 min-h-screen flex flex-col">
     <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-900">LLM Performance Benchmark</h1>
-            <div class="flex space-x-4">
+        <div class="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-900">LLM Performance Benchmark</h1>
+            <div class="flex space-x-2">
                 <button id="reset-btn"
-                    class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition">
-                    <i class="fas fa-redo mr-2"></i>Reset
+                    class="px-3 py-1 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition text-sm">
+                    <i class="fas fa-redo mr-1"></i>Clear
+                </button>
+                <button id="setup-btn"
+                    class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm">
+                    <i class="fas fa-cog mr-1"></i>Setup
                 </button>
                 <button id="history-btn"
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                    <i class="fas fa-history mr-2"></i>History
+                    class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm">
+                    <i class="fas fa-history mr-1"></i>History
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="flex-grow max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <!-- Configuration and Summary Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <!-- Configuration Panel -->
-            <div class="bg-white p-4 rounded-lg shadow lg:col-span-1">
-                <h2 class="text-lg font-medium text-gray-900 mb-3">Configuration</h2>
-                <div class="space-y-3">
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Baseline URL</label>
-                            <input type="text" id="baseline-url" value="http://localhost:9000/v1"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Quantized URL</label>
-                            <input type="text" id="quantized-url" value="http://localhost:9001/v1"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Temperature</label>
-                            <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7"
-                                class="mt-1 block w-full">
-                            <div class="flex justify-between text-xs text-gray-500">
-                                <span>0</span>
-                                <span>0.7</span>
-                                <span>2</span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Max Tokens</label>
-                            <input type="number" id="max-tokens" value="1024"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
-                        </div>
-                    </div>
-                    <div>
-                        <button id="connect-btn"
-                            class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition text-sm">
-                            <i class="fas fa-plug mr-2"></i>Connect to Models
-                        </button>
-                    </div>
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+        <!-- Summary Grid -->
+        <div class="grid grid-cols-12 gap-4 mb-4">
+            <!-- Performance Stats -->
+            <div class="col-span-3 space-y-2">
+                <div class="stat-card bg-blue-50 p-2 rounded-lg border border-blue-100">
+                    <div class="text-sm font-medium text-blue-800">Speedup</div>
+                    <div id="speed-improvement" class="text-lg font-bold text-blue-900">-</div>
+                    <div class="text-xs text-blue-600">Tokens/second</div>
+                </div>
+                <div class="stat-card bg-green-50 p-2 rounded-lg border border-green-100">
+                    <div class="text-sm font-medium text-green-800">TTFT</div>
+                    <div id="ttft-improvement" class="text-lg font-bold text-green-900">-</div>
+                    <div class="text-xs text-green-600">First token</div>
+                </div>
+                <div class="stat-card bg-yellow-50 p-2 rounded-lg border border-yellow-100">
+                    <div class="text-sm font-medium text-yellow-800">ITL</div>
+                    <div id="itl-improvement" class="text-lg font-bold text-yellow-900">-</div>
+                    <div class="text-xs text-yellow-600">Token latency</div>
                 </div>
             </div>
 
-            <!-- Summary Statistics -->
-            <div class="bg-white p-4 rounded-lg shadow lg:col-span-2">
-                <h2 class="text-lg font-medium text-gray-900 mb-3">Performance Summary</h2>
-                <div class="grid grid-cols-4 gap-3 mb-3">
-                    <div class="stat-card bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <div class="text-sm font-medium text-blue-800">Speed</div>
-                        <div id="speed-improvement" class="text-xl font-bold text-blue-900">-</div>
-                        <div class="text-xs text-blue-600">Tokens/second</div>
-                    </div>
-                    <div class="stat-card bg-purple-50 p-3 rounded-lg border border-purple-100">
-                        <div class="text-sm font-medium text-purple-800">Memory</div>
-                        <div id="memory-reduction" class="text-xl font-bold text-purple-900">-</div>
-                        <div class="text-xs text-purple-600">Model size</div>
-                    </div>
-                    <div class="stat-card bg-green-50 p-3 rounded-lg border border-green-100">
-                        <div class="text-sm font-medium text-green-800">TTFT</div>
-                        <div id="ttft-improvement" class="text-xl font-bold text-green-900">-</div>
-                        <div class="text-xs text-green-600">First token</div>
-                    </div>
-                    <div class="stat-card bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                        <div class="text-sm font-medium text-yellow-800">ITL</div>
-                        <div id="itl-improvement" class="text-xl font-bold text-yellow-900">-</div>
-                        <div class="text-xs text-yellow-600">Token latency</div>
-                    </div>
-                </div>
-                <div>
-                    <canvas id="performance-chart" height="120"></canvas>
-                </div>
+            <!-- Performance Chart -->
+            <div class="col-span-9 bg-white p-3 rounded-lg shadow">
+                <canvas id="performance-chart" height="80"></canvas>
             </div>
         </div>
 
@@ -251,8 +208,80 @@
                     </label>
                 </div>
             </div>
+            <!-- Example Prompts -->
+            <div class="mt-4">
+                <h3 class="text-sm font-medium text-gray-700 mb-2">Example Prompts:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                        data-prompt="Explain quantum computing in simple terms.">
+                        Quantum Computing
+                    </button>
+                    <button
+                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                        data-prompt="Write a short story about a robot learning to paint.">
+                        Robot Story
+                    </button>
+                    <button
+                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                        data-prompt="Compare and contrast Python and JavaScript programming languages.">
+                        Python vs JavaScript
+                    </button>
+                    <button
+                        class="example-prompt px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition"
+                        data-prompt="What are the key principles of good UI/UX design?">
+                        UI/UX Principles
+                    </button>
+                </div>
+            </div>
         </div>
     </main>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Model Configuration</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Baseline URL</label>
+                        <input type="text" id="baseline-url" value="http://localhost:9000/v1"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Quantized URL</label>
+                        <input type="text" id="quantized-url" value="http://localhost:9001/v1"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Temperature</label>
+                        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7"
+                            class="mt-1 block w-full">
+                        <div class="flex justify-between text-xs text-gray-500">
+                            <span>0</span>
+                            <span>0.7</span>
+                            <span>2</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Max Tokens</label>
+                        <input type="number" id="max-tokens" value="1024"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
+                    </div>
+                    <div class="flex justify-end space-x-3 mt-4">
+                        <button id="cancel-setup"
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition">
+                            Cancel
+                        </button>
+                        <button id="save-setup"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Global variables
@@ -284,7 +313,6 @@
         let chatHistory = [];
 
         // DOM elements
-        const connectBtn = document.getElementById('connect-btn');
         const sendBtn = document.getElementById('send-btn');
         const resetBtn = document.getElementById('reset-btn');
         const historyBtn = document.getElementById('history-btn');
@@ -304,29 +332,37 @@
                         {
                             label: 'Baseline',
                             data: [0, 0, 0],
-                            backgroundColor: 'rgba(75, 85, 99, 0.6)',
-                            borderColor: 'rgba(75, 85, 99, 1)',
+                            backgroundColor: 'rgba(71, 71, 71, 0.6)',
+                            borderColor: 'rgba(71, 71, 71, 1)',
                             borderWidth: 1
                         },
                         {
                             label: 'Quantized',
                             data: [0, 0, 0],
-                            backgroundColor: 'rgba(79, 70, 229, 0.6)',
-                            borderColor: 'rgba(79, 70, 229, 1)',
+                            backgroundColor: 'rgba(238, 0, 0, 0.6)',
+                            borderColor: 'rgba(238, 0, 0, 1)',
                             borderWidth: 1
                         }
                     ]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
-                        y: {
+                        x: {
                             beginAtZero: true
                         }
                     },
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                font: {
+                                    size: 11
+                                }
+                            }
                         },
                         tooltip: {
                             callbacks: {
@@ -335,15 +371,33 @@
                                     if (label) {
                                         label += ': ';
                                     }
-                                    if (context.parsed.y !== null) {
-                                        if (context.dataIndex === 2) { // Throughput
-                                            label += context.parsed.y.toFixed(2) + ' tokens/s';
+                                    if (context.parsed.x !== null) {
+                                        if (context.parsed.dataIndex === 2) { // Throughput
+                                            label += context.parsed.x.toFixed(1) + ' tokens/s';
                                         } else { // TTFT and ITL
-                                            label += context.parsed.y.toFixed(2) + ' ms';
+                                            label += context.parsed.x.toFixed(1) + ' ms';
                                         }
                                     }
                                     return label;
                                 }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'right',
+                            formatter: function (value, context) {
+                                if (context.dataIndex === 2) { // Throughput
+                                    return value.toFixed(1) + ' t/s';
+                                } else { // TTFT and ITL
+                                    return value.toFixed(1) + ' ms';
+                                }
+                            },
+                            color: function (context) {
+                                return context.datasetIndex === 0 ? 'rgb(71, 71, 71)' : 'rgb(238, 0, 0)';
+                            },
+                            font: {
+                                weight: 'bold',
+                                size: 11
                             }
                         }
                     }
@@ -353,16 +407,15 @@
 
         // Connect to models
         async function connectToModels() {
+            console.log("connectToModels function started");
             const baselineUrl = document.getElementById('baseline-url').value;
             const quantizedUrl = document.getElementById('quantized-url').value;
+            console.log(`URLs read: Baseline='${baselineUrl}', Quantized='${quantizedUrl}'`);
 
             if (!baselineUrl || !quantizedUrl) {
-                alert('Please enter both model URLs');
+                alert('Please enter both model URLs in the Setup modal');
                 return;
             }
-
-            connectBtn.disabled = true;
-            connectBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Connecting...';
 
             try {
                 // Connect to baseline model
@@ -401,15 +454,20 @@
 
                 // Update summary
                 updateSummaryStats();
-
-                connectBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Connected';
-                connectBtn.className = 'w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition cursor-not-allowed';
             } catch (error) {
                 console.error('Error connecting to models:', error);
                 alert('Error connecting to models. Please check the URLs and try again.');
 
-                connectBtn.disabled = false;
-                connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i>Connect to Models';
+                // Reset connection status if error occurs
+                // Consider adding UI feedback here if needed
+                baselineStats.connected = false;
+                quantizedStats.connected = false;
+                sendBtn.disabled = true; // Disable send if connection failed
+                // Update status indicators if needed
+                document.getElementById('baseline-status').textContent = 'Error';
+                document.getElementById('baseline-status').className = 'text-xs px-2 py-1 rounded-full bg-red-600';
+                document.getElementById('quantized-status').textContent = 'Error';
+                document.getElementById('quantized-status').className = 'text-xs px-2 py-1 rounded-full bg-red-600';
             }
         }
 
@@ -482,29 +540,18 @@
             }
 
             try {
-                // Call both models simultaneously
+                // Call models concurrently again
                 const baselineUrl = document.getElementById('baseline-url').value;
                 const quantizedUrl = document.getElementById('quantized-url').value;
 
+                console.log("Calling both models concurrently...");
                 const baselinePromise = callModel(baselineUrl, messages, temperature, maxTokens, stream, baselineContentDiv, 'baseline');
                 const quantizedPromise = callModel(quantizedUrl, messages, temperature, maxTokens, stream, quantizedContentDiv, 'quantized');
 
                 await Promise.all([baselinePromise, quantizedPromise]);
+                console.log("Both model calls finished (or errored).");
 
-                // Calculate final throughput
-                if (baselineStats.tokens > 0 && baselineStats.startTime) {
-                    const duration = (Date.now() - baselineStats.startTime) / 1000;
-                    baselineStats.throughput = baselineStats.tokens / duration;
-                    document.getElementById('baseline-throughput').textContent = baselineStats.throughput.toFixed(2) + ' t/s';
-                }
-
-                if (quantizedStats.tokens > 0 && quantizedStats.startTime) {
-                    const duration = (Date.now() - quantizedStats.startTime) / 1000;
-                    quantizedStats.throughput = quantizedStats.tokens / duration;
-                    document.getElementById('quantized-throughput').textContent = quantizedStats.throughput.toFixed(2) + ' t/s';
-                }
-
-                // Update summary stats
+                // Update summary stats after both models have potentially updated their individual stats
                 updateSummaryStats();
 
             } catch (error) {
@@ -547,6 +594,7 @@
                 const decoder = new TextDecoder();
                 let buffer = '';
                 let firstToken = true;
+                let startTime = Date.now();
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -583,6 +631,11 @@
 
                                     stats.lastTokenTime = Date.now();
                                     stats.tokens++;
+
+                                    // Calculate throughput in real-time
+                                    const duration = (Date.now() - startTime) / 1000; // Convert to seconds
+                                    stats.throughput = stats.tokens / duration;
+                                    document.getElementById(`${modelType}-throughput`).textContent = stats.throughput.toFixed(2) + ' t/s';
                                 }
                             } catch (e) {
                                 console.error('Error parsing stream data:', e);
@@ -605,14 +658,14 @@
                 contentDiv.textContent = content;
 
                 // Calculate metrics for non-streaming
-                stats.ttft = Date.now() - stats.startTime;
+                const duration = (Date.now() - stats.startTime) / 1000; // Convert to seconds
+                stats.ttft = duration;
                 document.getElementById(`${modelType}-ttft`).textContent = stats.ttft + ' ms';
 
                 // Estimate tokens (this would be better with actual token count from API)
                 stats.tokens = content.split(' ').length * 1.33; // Rough estimate
 
                 // Calculate throughput
-                const duration = (Date.now() - stats.startTime) / 1000;
                 stats.throughput = stats.tokens / duration;
                 document.getElementById(`${modelType}-throughput`).textContent = stats.throughput.toFixed(2) + ' t/s';
             }
@@ -621,11 +674,11 @@
         // Update summary statistics
         function updateSummaryStats() {
             if (baselineStats.throughput && quantizedStats.throughput) {
-                const speedImprovement = ((quantizedStats.throughput - baselineStats.throughput) / baselineStats.throughput * 100).toFixed(2);
-                document.getElementById('speed-improvement').textContent = `${speedImprovement}%`;
+                const speedMultiplier = (quantizedStats.throughput / baselineStats.throughput).toFixed(1);
+                document.getElementById('speed-improvement').textContent = `${speedMultiplier}x`;
 
                 // Highlight if significant improvement
-                if (parseFloat(speedImprovement) > 10) {
+                if (parseFloat(speedMultiplier) > 1.1) {
                     document.getElementById('speed-improvement').classList.add('highlight');
                     setTimeout(() => {
                         document.getElementById('speed-improvement').classList.remove('highlight');
@@ -634,13 +687,13 @@
             }
 
             if (baselineStats.ttft && quantizedStats.ttft) {
-                const ttftImprovement = ((baselineStats.ttft - quantizedStats.ttft) / baselineStats.ttft * 100).toFixed(2);
-                document.getElementById('ttft-improvement').textContent = `${ttftImprovement}%`;
+                const ttftMultiplier = (baselineStats.ttft / quantizedStats.ttft).toFixed(1);
+                document.getElementById('ttft-improvement').textContent = `${ttftMultiplier}x`;
             }
 
             if (baselineStats.itl && quantizedStats.itl) {
-                const itlImprovement = ((baselineStats.itl - quantizedStats.itl) / baselineStats.itl * 100).toFixed(2);
-                document.getElementById('itl-improvement').textContent = `${itlImprovement}%`;
+                const itlMultiplier = (baselineStats.itl / quantizedStats.itl).toFixed(1);
+                document.getElementById('itl-improvement').textContent = `${itlMultiplier}x`;
             }
 
             // Update chart
@@ -708,11 +761,6 @@
             document.getElementById('speed-improvement').textContent = '-';
             document.getElementById('ttft-improvement').textContent = '-';
             document.getElementById('itl-improvement').textContent = '-';
-            document.getElementById('memory-reduction').textContent = '-';
-
-            connectBtn.disabled = false;
-            connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i>Connect to Models';
-            connectBtn.className = 'w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition';
 
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send';
@@ -731,17 +779,66 @@
             // In a real implementation, this would show a modal with previous test results
         }
 
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', initPerformanceChart);
-        connectBtn.addEventListener('click', connectToModels);
-        sendBtn.addEventListener('click', sendMessage);
-        resetBtn.addEventListener('click', resetApplication);
-        historyBtn.addEventListener('click', showHistory);
-        userInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
+        // Wait for the DOM to be fully loaded before setting up event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            initPerformanceChart();
+
+            // Setup modal functionality
+            const setupModal = document.getElementById('setup-modal');
+            const setupBtn = document.getElementById('setup-btn');
+            const cancelSetupBtn = document.getElementById('cancel-setup');
+            const saveSetupBtn = document.getElementById('save-setup');
+            console.log('saveSetupBtn element:', saveSetupBtn);
+
+            // Check if elements exist before adding listeners
+            if (setupBtn && setupModal) {
+                setupBtn.addEventListener('click', () => {
+                    setupModal.classList.remove('hidden');
+                });
+            } else {
+                console.error('Setup button or modal not found');
             }
+
+            if (cancelSetupBtn && setupModal) {
+                cancelSetupBtn.addEventListener('click', () => {
+                    setupModal.classList.add('hidden');
+                });
+            } else {
+                console.error('Cancel setup button not found');
+            }
+
+            if (saveSetupBtn && setupModal) {
+                console.log('Attaching click listener to saveSetupBtn');
+                saveSetupBtn.addEventListener('click', () => {
+                    setupModal.classList.add('hidden');
+                    // Optionally save settings to localStorage here
+                    // Now, attempt to connect using the entered values
+                    console.log("Save button clicked, attempting to call connectToModels...");
+                    connectToModels();
+                });
+            } else {
+                if (!saveSetupBtn) console.error('Save setup button element NOT found!');
+                if (!setupModal) console.error('Setup modal element NOT found!');
+                console.error('Save setup button listener NOT attached.');
+            }
+
+            // Close modal when clicking outside
+            window.addEventListener('click', (event) => {
+                if (setupModal && event.target === setupModal) {
+                    setupModal.classList.add('hidden');
+                }
+            });
+
+            // Other event listeners that depend on DOM elements
+            sendBtn.addEventListener('click', sendMessage);
+            resetBtn.addEventListener('click', resetApplication);
+            historyBtn.addEventListener('click', showHistory);
+            userInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
         });
 
         // Token counter
@@ -750,6 +847,19 @@
             // Very rough token estimate (4 chars ~= 1 token)
             const tokenCount = Math.ceil(text.length / 4);
             document.getElementById('token-count').textContent = tokenCount;
+        });
+
+        // Example prompt click handlers
+        document.querySelectorAll('.example-prompt').forEach(button => {
+            button.addEventListener('click', () => {
+                const prompt = button.getAttribute('data-prompt');
+                userInput.value = prompt;
+                // Update token count
+                const tokenCount = Math.ceil(prompt.length / 4);
+                document.getElementById('token-count').textContent = tokenCount;
+                // Focus the input
+                userInput.focus();
+            });
         });
     </script>
 </body>
