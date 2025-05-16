@@ -170,9 +170,9 @@
             <!-- Performance Stats -->
             <div class="col-span-2 space-y-2">
                 <div class="stat-card bg-green-50 p-2 rounded-lg border border-green-100">
-                    <div class="text-sm font-medium text-green-800">TTFT Speedup</div>
-                    <div id="ttft-improvement" class="text-lg font-bold text-green-900">-</div>
-                    <div class="text-xs text-green-600">Time To First Token</div>
+                    <div class="text-sm font-medium text-green-800">E2E Latency Speedup</div>
+                    <div id="e2e-latency-speedup" class="text-lg font-bold text-green-900">-</div>
+                    <div class="text-xs text-green-600">End-to-End Response (s)</div>
                 </div>
                 <div class="stat-card bg-yellow-50 p-2 rounded-lg border border-yellow-100">
                     <div class="text-sm font-medium text-yellow-800">ITL Speedup</div>
@@ -267,12 +267,28 @@
 
         <!-- Input Area -->
         <div class="bg-white rounded-lg shadow p-4">
-            <div class="flex space-x-4">
+            <div class="flex space-x-4 items-stretch">
                 <div class="flex-grow">
-                    <textarea id="user-input" rows="2"
+                    <textarea id="user-input" rows="3"
                         class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-3 border"
                         placeholder="Type your message here..."></textarea>
                 </div>
+
+                <!-- Model Parameters Column -->
+                <div class="flex flex-col w-48 shrink-0">
+                    <div>
+                        <label for="temperature" class="block text-xs font-medium text-gray-600 mb-1">Temperature (<span
+                                id="temperature-value-display">0.7</span>)</label>
+                        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7"
+                            class="w-full h-5 accent-blue-600">
+                    </div>
+                    <div>
+                        <label for="max-tokens" class="block text-xs font-medium text-gray-600 mb-1">Max Tokens</label>
+                        <input type="number" id="max-tokens" value="1024" min="1"
+                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-1.5 border text-sm">
+                    </div>
+                </div>
+
                 <div>
                     <button id="send-btn"
                         class="h-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition disabled:opacity-50 flex items-center"
@@ -326,21 +342,6 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Quantized URL</label>
                         <input type="text" id="quantized-url" value="http://localhost:9001/v1"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Temperature</label>
-                        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7"
-                            class="mt-1 block w-full">
-                        <div class="flex justify-between text-xs text-gray-500">
-                            <span>0</span>
-                            <span>0.7</span>
-                            <span>2</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Max Tokens</label>
-                        <input type="number" id="max-tokens" value="1024"
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border text-sm">
                     </div>
                     <div class="flex justify-end space-x-3 mt-4">
@@ -443,7 +444,7 @@
             performanceChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['TTFT (ms)', 'ITL (ms)', 'Throughput (t/s)'],
+                    labels: ['E2E Latency (s)', 'Inter-token Latency (ms)', 'Throughput (t/s)'],
                     datasets: [
                         {
                             label: 'Baseline',
@@ -491,11 +492,13 @@
                                         const dataIndex = context.dataIndex;
                                         const stats = context.datasetIndex === 0 ? baselineStats : quantizedStats;
 
-                                        if (dataIndex === 2) { // Throughput
+                                        if (dataIndex === 0) { // E2E Latency
+                                            return label + context.parsed.x.toFixed(2) + ' s';
+                                        } else if (dataIndex === 2) { // Throughput
                                             return label + context.parsed.x.toFixed(1) + ' tokens/s';
                                         } else if (dataIndex === 1 && stats.itlValues.length > 0) { // ITL
                                             return label + `${context.parsed.x.toFixed(1)} ms (σ=${stats.itlStdDev.toFixed(1)})`;
-                                        } else { // TTFT
+                                        } else { // Fallback for ITL if no values
                                             return label + context.parsed.x.toFixed(1) + ' ms';
                                         }
                                     }
@@ -510,11 +513,13 @@
                                 const dataIndex = context.dataIndex;
                                 const stats = context.datasetIndex === 0 ? baselineStats : quantizedStats;
 
-                                if (dataIndex === 2) { // Throughput
+                                if (dataIndex === 0) { // E2E Latency
+                                    return value.toFixed(2) + ' s';
+                                } else if (dataIndex === 2) { // Throughput
                                     return value.toFixed(1) + ' t/s';
                                 } else if (dataIndex === 1 && stats.itlValues.length > 0) { // ITL
                                     return `${value.toFixed(1)} ±${stats.itlStdDev.toFixed(1)} ms`;
-                                } else { // TTFT
+                                } else {
                                     return value.toFixed(1) + ' ms';
                                 }
                             },
@@ -569,9 +574,6 @@
                 // Clear chat windows and show welcome message
                 baselineChat.innerHTML = '';
                 quantizedChat.innerHTML = '';
-
-                addMessage(baselineChat, 'assistant', 'Baseline model connected and ready for benchmarking.');
-                addMessage(quantizedChat, 'assistant', 'Quantized model connected and ready for benchmarking.');
 
                 // Enable send button
                 sendBtn.disabled = false;
@@ -819,7 +821,6 @@
                                 if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                     const token = data.choices[0].delta.content;
                                     markdownBuffer += token;
-                                    streamingDiv.textContent += token; // Show new text immediately
 
                                     // Scroll chat window to show latest content
                                     const chatElement = document.getElementById(`${modelType}-chat`);
@@ -851,13 +852,16 @@
 
                                     // Update chart in real-time
                                     if (performanceChart) {
+                                        const baselineE2ELatency = (baselineStats.lastTokenTime && baselineStats.startTime) ? (baselineStats.lastTokenTime - baselineStats.startTime) / 1000 : 0;
+                                        const quantizedE2ELatency = (quantizedStats.lastTokenTime && quantizedStats.startTime) ? (quantizedStats.lastTokenTime - quantizedStats.startTime) / 1000 : 0;
+
                                         const baselineData = [
-                                            baselineStats.ttft || 0,
+                                            baselineE2ELatency,
                                             baselineStats.itlMean || 0,
                                             baselineStats.throughput || 0
                                         ];
                                         const quantizedData = [
-                                            quantizedStats.ttft || 0,
+                                            quantizedE2ELatency,
                                             quantizedStats.itlMean || 0,
                                             quantizedStats.throughput || 0
                                         ];
@@ -915,25 +919,40 @@
                 }
             }
 
-            if (baselineStats.ttft && quantizedStats.ttft) {
-                const ttftMultiplier = (baselineStats.ttft / quantizedStats.ttft).toFixed(1);
-                document.getElementById('ttft-improvement').textContent = `${ttftMultiplier}x`;
+            // Calculate and display E2E Latency Speedup
+            if (baselineStats.lastTokenTime && baselineStats.startTime && quantizedStats.lastTokenTime && quantizedStats.startTime) {
+                const baselineE2ELatencyMs = baselineStats.lastTokenTime - baselineStats.startTime;
+                const quantizedE2ELatencyMs = quantizedStats.lastTokenTime - quantizedStats.startTime;
+
+                if (quantizedE2ELatencyMs > 0) {
+                    const e2eLatencySpeedup = (baselineE2ELatencyMs / quantizedE2ELatencyMs).toFixed(1);
+                    document.getElementById('e2e-latency-speedup').textContent = `${e2eLatencySpeedup}x`;
+                } else {
+                    document.getElementById('e2e-latency-speedup').textContent = '-';
+                }
+            } else {
+                document.getElementById('e2e-latency-speedup').textContent = '-';
             }
 
-            if (baselineStats.itlValues.length > 0 && quantizedStats.itlValues.length > 0) {
+            if (baselineStats.itlValues.length > 0 && quantizedStats.itlValues.length > 0 && baselineStats.itlMean && quantizedStats.itlMean) {
                 const itlMultiplier = (baselineStats.itlMean / quantizedStats.itlMean).toFixed(1);
-                document.getElementById('itl-improvement').textContent = `${itlMultiplier}x`;
+                if (document.getElementById('itl-improvement')) {
+                    document.getElementById('itl-improvement').textContent = `${itlMultiplier}x`;
+                }
             }
 
             // Update chart
             if (performanceChart) {
+                const baselineE2ELatency = (baselineStats.lastTokenTime && baselineStats.startTime) ? (baselineStats.lastTokenTime - baselineStats.startTime) / 1000 : 0;
+                const quantizedE2ELatency = (quantizedStats.lastTokenTime && quantizedStats.startTime) ? (quantizedStats.lastTokenTime - quantizedStats.startTime) / 1000 : 0;
+
                 performanceChart.data.datasets[0].data = [
-                    baselineStats.ttft || 0,
+                    baselineE2ELatency,
                     baselineStats.itlMean || 0,
                     baselineStats.throughput || 0
                 ];
                 performanceChart.data.datasets[1].data = [
-                    quantizedStats.ttft || 0,
+                    quantizedE2ELatency,
                     quantizedStats.itlMean || 0,
                     quantizedStats.throughput || 0
                 ];
@@ -992,8 +1011,10 @@
             quantizedChat.innerHTML = '<div class="text-center text-red-500 py-10"><i class="fas fa-bolt text-4xl mb-2"></i><p>Connect to quantized model to start benchmarking</p></div>';
 
             document.getElementById('speed-improvement').textContent = '-';
-            document.getElementById('ttft-improvement').textContent = '-';
-            document.getElementById('itl-improvement').textContent = '-';
+            document.getElementById('e2e-latency-speedup').textContent = '-';
+            if (document.getElementById('itl-improvement')) {
+                document.getElementById('itl-improvement').textContent = '-';
+            }
 
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send';
@@ -1097,6 +1118,17 @@
                     userInput.focus();
                 });
             });
+
+            // Live update for temperature display
+            const temperatureInput = document.getElementById('temperature');
+            const temperatureValueDisplay = document.getElementById('temperature-value-display');
+            if (temperatureInput && temperatureValueDisplay) {
+                temperatureInput.addEventListener('input', () => {
+                    temperatureValueDisplay.textContent = temperatureInput.value;
+                });
+                // Set initial value on load
+                temperatureValueDisplay.textContent = temperatureInput.value;
+            }
         });
 
         // Add some additional markdown styling for better readability
