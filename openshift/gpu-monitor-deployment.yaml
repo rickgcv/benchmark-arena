@@ -7,7 +7,7 @@ metadata:
     app: llm-benchmark
     component: gpu-monitor
 spec:
-  replicas: 1  # Only one replica needed for GPU monitoring
+  replicas: 1
   selector:
     matchLabels:
       app: llm-benchmark
@@ -18,12 +18,9 @@ spec:
         app: llm-benchmark
         component: gpu-monitor
     spec:
-      nodeSelector:
-        # Ensure pod runs on GPU-enabled nodes
-        nvidia.com/gpu: "true"
       containers:
       - name: gpu-monitor
-        image: llm-benchmark-gpu-monitor:latest
+        image: image-registry.openshift-image-registry.svc:5000/llm-benchmark/llm-benchmark-gpu-monitor:latest
         ports:
         - containerPort: 8080
           protocol: TCP
@@ -31,24 +28,9 @@ spec:
           requests:
             memory: "128Mi"
             cpu: "100m"
-            nvidia.com/gpu: 0  # Request access to GPUs but don't consume them
           limits:
             memory: "512Mi"
             cpu: "500m"
-        # Mount NVIDIA device files for GPU access
-        volumeMounts:
-        - name: nvidia-dev
-          mountPath: /dev/nvidia0
-          readOnly: true
-        - name: nvidia-dev-ctl
-          mountPath: /dev/nvidiactl
-          readOnly: true
-        - name: nvidia-dev-uvm
-          mountPath: /dev/nvidia-uvm
-          readOnly: true
-        - name: nvidia-ml
-          mountPath: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
-          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
@@ -68,28 +50,8 @@ spec:
           value: "0.0.0.0"
         - name: FLASK_PORT
           value: "8080"
-        securityContext:
-          # Allow access to GPU devices
-          privileged: false
-          runAsNonRoot: true
-          runAsUser: 1000
-          capabilities:
-            add:
-            - SYS_ADMIN  # Required for NVIDIA monitoring
-      volumes:
-      # Mount NVIDIA device files
-      - name: nvidia-dev
-        hostPath:
-          path: /dev/nvidia0
-      - name: nvidia-dev-ctl
-        hostPath:
-          path: /dev/nvidiactl
-      - name: nvidia-dev-uvm
-        hostPath:
-          path: /dev/nvidia-uvm
-      - name: nvidia-ml
-        hostPath:
-          path: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+        - name: SIMULATE_GPU
+          value: "true"  # Use simulated GPU data for sandbox environment
       restartPolicy: Always
 ---
 apiVersion: v1

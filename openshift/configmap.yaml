@@ -7,9 +7,9 @@ metadata:
     app: llm-benchmark
 data:
   # Frontend configuration
-  baseline_url: "https://llm-benchmark-vllm-baseline-route-llm-benchmark.apps.your-cluster.com/v1"
-  quantized_url: "https://llm-benchmark-vllm-quantized-route-llm-benchmark.apps.your-cluster.com/v1"
-  gpu_monitor_url: "https://llm-benchmark-gpu-monitor-route-llm-benchmark.apps.your-cluster.com"
+  baseline_url: "https://llm-benchmark-vllm-baseline-route-llm-benchmark.apps.cluster-xxkxn.xxkxn.sandbox936.opentlc.com/v1"
+  quantized_url: "https://llm-benchmark-vllm-quantized-route-llm-benchmark.apps.cluster-xxkxn.xxkxn.sandbox936.opentlc.com/v1"
+  gpu_monitor_url: "https://llm-benchmark-gpu-monitor-route-llm-benchmark.apps.cluster-xxkxn.xxkxn.sandbox936.opentlc.com"
   
   # GPU monitoring configuration
   monitoring_interval: "2000"  # milliseconds

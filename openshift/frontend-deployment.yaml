@@ -20,9 +20,9 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: llm-benchmark-frontend:latest
+        image: image-registry.openshift-image-registry.svc:5000/llm-benchmark/llm-benchmark-frontend:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           protocol: TCP
         resources:
           requests:
@@ -62,8 +62,8 @@ spec:
     component: frontend
   ports:
   - name: http
-    port: 80
-    targetPort: 80
+    port: 8080
+    targetPort: 8080
     protocol: TCP
   type: ClusterIP
 ---
