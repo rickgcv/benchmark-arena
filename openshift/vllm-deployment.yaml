@@ -1,0 +1,219 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-benchmark-vllm-baseline
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-baseline
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-benchmark
+      component: vllm-baseline
+  template:
+    metadata:
+      labels:
+        app: llm-benchmark
+        component: vllm-baseline
+    spec:
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      containers:
+      - name: vllm-baseline
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "2"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "16Gi"
+            cpu: "4"
+            nvidia.com/gpu: 1
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: huggingface-token
+              key: token
+              optional: true
+        command:
+        - "python"
+        - "-m"
+        - "vllm.entrypoints.openai.api_server"
+        - "--model"
+        - "meta-llama/Llama-3.1-8B-Instruct"
+        - "--port"
+        - "8000"
+        - "--host"
+        - "0.0.0.0"
+        - "--tensor-parallel-size"
+        - "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300  # Model loading takes time
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-benchmark-vllm-quantized
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-quantized
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llm-benchmark
+      component: vllm-quantized
+  template:
+    metadata:
+      labels:
+        app: llm-benchmark
+        component: vllm-quantized
+    spec:
+      nodeSelector:
+        nvidia.com/gpu: "true"
+      containers:
+      - name: vllm-quantized
+        image: vllm/vllm-openai:latest
+        ports:
+        - containerPort: 8000
+          protocol: TCP
+        resources:
+          requests:
+            memory: "6Gi"
+            cpu: "2"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "12Gi"
+            cpu: "4"
+            nvidia.com/gpu: 1
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "1"
+        - name: HUGGING_FACE_HUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: huggingface-token
+              key: token
+              optional: true
+        command:
+        - "python"
+        - "-m"
+        - "vllm.entrypoints.openai.api_server"
+        - "--model"
+        - "RedHatAI/Meta-Llama-3.1-8B-Instruct-quantized.w4a16" 
+        - "--port"
+        - "8000"
+        - "--host"
+        - "0.0.0.0"
+        - "--tensor-parallel-size"
+        - "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 300
+          periodSeconds: 30
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-benchmark-vllm-baseline-service
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-baseline
+spec:
+  selector:
+    app: llm-benchmark
+    component: vllm-baseline
+  ports:
+  - name: http
+    port: 9000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-benchmark-vllm-quantized-service
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-quantized
+spec:
+  selector:
+    app: llm-benchmark
+    component: vllm-quantized
+  ports:
+  - name: http
+    port: 9001
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: llm-benchmark-vllm-baseline-route
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-baseline
+spec:
+  to:
+    kind: Service
+    name: llm-benchmark-vllm-baseline-service
+  port:
+    targetPort: http
+  path: /v1
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: llm-benchmark-vllm-quantized-route
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: vllm-quantized
+spec:
+  to:
+    kind: Service
+    name: llm-benchmark-vllm-quantized-service
+  port:
+    targetPort: http
+  path: /v1
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect 

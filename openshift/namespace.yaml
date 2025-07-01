@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-benchmark
+  labels:
+    app: llm-benchmark
+    env: production
+  annotations:
+    openshift.io/description: "LLM Performance Benchmark Application"
+    openshift.io/display-name: "LLM Benchmark" 

@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-benchmark-config
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+data:
+  # Frontend configuration
+  baseline_url: "https://llm-benchmark-vllm-baseline-route-llm-benchmark.apps.your-cluster.com/v1"
+  quantized_url: "https://llm-benchmark-vllm-quantized-route-llm-benchmark.apps.your-cluster.com/v1"
+  gpu_monitor_url: "https://llm-benchmark-gpu-monitor-route-llm-benchmark.apps.your-cluster.com"
+  
+  # GPU monitoring configuration
+  monitoring_interval: "2000"  # milliseconds
+  gpu_count: "2"
+  
+  # Cost calculation parameters (AWS p3.2xlarge example)
+  baseline_hourly_rate: "3.06"
+  quantized_hourly_rate: "1.53"
+  baseline_memory_rate: "0.12"
+  quantized_memory_rate: "0.08"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: huggingface-token
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+type: Opaque
+stringData:
+  token: ""  # Add your HuggingFace token here if needed for model access 

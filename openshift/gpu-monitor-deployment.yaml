@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-benchmark-gpu-monitor
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: gpu-monitor
+spec:
+  replicas: 1  # Only one replica needed for GPU monitoring
+  selector:
+    matchLabels:
+      app: llm-benchmark
+      component: gpu-monitor
+  template:
+    metadata:
+      labels:
+        app: llm-benchmark
+        component: gpu-monitor
+    spec:
+      nodeSelector:
+        # Ensure pod runs on GPU-enabled nodes
+        nvidia.com/gpu: "true"
+      containers:
+      - name: gpu-monitor
+        image: llm-benchmark-gpu-monitor:latest
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+            nvidia.com/gpu: 0  # Request access to GPUs but don't consume them
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Mount NVIDIA device files for GPU access
+        volumeMounts:
+        - name: nvidia-dev
+          mountPath: /dev/nvidia0
+          readOnly: true
+        - name: nvidia-dev-ctl
+          mountPath: /dev/nvidiactl
+          readOnly: true
+        - name: nvidia-dev-uvm
+          mountPath: /dev/nvidia-uvm
+          readOnly: true
+        - name: nvidia-ml
+          mountPath: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: FLASK_HOST
+          value: "0.0.0.0"
+        - name: FLASK_PORT
+          value: "8080"
+        securityContext:
+          # Allow access to GPU devices
+          privileged: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            add:
+            - SYS_ADMIN  # Required for NVIDIA monitoring
+      volumes:
+      # Mount NVIDIA device files
+      - name: nvidia-dev
+        hostPath:
+          path: /dev/nvidia0
+      - name: nvidia-dev-ctl
+        hostPath:
+          path: /dev/nvidiactl
+      - name: nvidia-dev-uvm
+        hostPath:
+          path: /dev/nvidia-uvm
+      - name: nvidia-ml
+        hostPath:
+          path: /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-benchmark-gpu-monitor-service
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: gpu-monitor
+spec:
+  selector:
+    app: llm-benchmark
+    component: gpu-monitor
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: llm-benchmark-gpu-monitor-route
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: gpu-monitor
+spec:
+  to:
+    kind: Service
+    name: llm-benchmark-gpu-monitor-service
+  port:
+    targetPort: http
+  path: /gpu
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect 

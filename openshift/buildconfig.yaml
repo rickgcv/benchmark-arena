@@ -1,0 +1,87 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: llm-benchmark-frontend-build
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: frontend
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/your-username/benchmark-arena.git  # Replace with your repo
+      ref: main
+    contextDir: .
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.frontend
+  output:
+    to:
+      kind: ImageStreamTag
+      name: llm-benchmark-frontend:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: github-webhook-secret
+  - type: Generic
+    generic:
+      secret: generic-webhook-secret
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: llm-benchmark-gpu-monitor-build
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: gpu-monitor
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/your-username/benchmark-arena.git  # Replace with your repo
+      ref: main
+    contextDir: .
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.gpu-monitor
+  output:
+    to:
+      kind: ImageStreamTag
+      name: llm-benchmark-gpu-monitor:latest
+  triggers:
+  - type: ConfigChange
+  - type: GitHub
+    github:
+      secret: github-webhook-secret
+  - type: Generic
+    generic:
+      secret: generic-webhook-secret
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: llm-benchmark-frontend
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: frontend
+spec:
+  lookupPolicy:
+    local: false
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: llm-benchmark-gpu-monitor
+  namespace: llm-benchmark
+  labels:
+    app: llm-benchmark
+    component: gpu-monitor
+spec:
+  lookupPolicy:
+    local: false 
